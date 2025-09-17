@@ -1,16 +1,16 @@
 # Rush Router
 
-Rush is a simple, fast, and robust HTTP router for Go, designed for reliable routing, custom handlers, and flexible middleware.
+Rush is a fast, lightweight HTTP router for Go with named parameters, wildcards, customizable handlers, and flexible middleware, all in ~280 LOC.
 
 ## Features
 
-- Use named parameters (e.g., `/user/{id}` via `r.PathValue("id"`) and wildcards (e.g., `/users/*`) in routes.
+- Use named parameters (e.g., `/user/{id}` via `r.PathValue("id")`) and wildcards (e.g., `/users/*`) in routes.
 - Supports overlapping routes, choosing the most specific match when multiple patterns could apply.
 - Middleware grouping with inheritance and prefix support (similar to chi).
 - Customizable handlers for `404 Not Found`, `405 Method Not Allowed`, and `OPTIONS`.
 - Automatic handling of `OPTIONS` and `HEAD` requests.
 - Compatible with `http.Handler`, `http.HandlerFunc`, and standard Go middleware.
-- Zero dependencies, small, easy-to-read codebase.
+- Lightweight, zero dependencies, and easy-to-read codebase.
 
 ## Installation
 
