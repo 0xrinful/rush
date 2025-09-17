@@ -1,4 +1,4 @@
-# Rush Router
+# Rush
 
 Rush is a fast, lightweight HTTP router for Go with named parameters, wildcards, customizable handlers, and flexible middleware, all in ~280 LOC.
 
