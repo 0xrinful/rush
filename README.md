@@ -17,7 +17,7 @@ Rush is a fast, lightweight HTTP router for Go with named parameters, wildcards,
 Install Rush with:
 
 ```
-go get github.com/0xrinful/rush
+go get github.com/0xrinful/rush@latest
 ```
 
 ## Quick Start Example
