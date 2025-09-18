@@ -57,7 +57,10 @@ func (n *node) allow() string {
 		for method := range n.handlers {
 			methods = append(methods, method)
 		}
-		methods = append(methods, http.MethodOptions)
+		if _, ok := n.handlers[http.MethodOptions]; !ok {
+			methods = append(methods, http.MethodOptions)
+		}
+
 		slices.Sort(methods)
 		n.allowHeader = strings.Join(methods, ", ")
 	}
