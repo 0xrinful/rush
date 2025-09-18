@@ -103,7 +103,7 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, rq *http.Request) {
 	r.wrapCustomHandlersOnce()
 
 	match, found := r.routes.lookup(urlPath)
-	if !found || len(match.node.handlers) == 0 {
+	if !found {
 		r.NotFound.ServeHTTP(w, rq)
 		return
 	}

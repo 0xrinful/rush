@@ -99,7 +99,10 @@ func (t *trie) lookup(path string) (routeMatch, bool) {
 
 func (n *node) match(i int, segments []string, params map[string]string) (routeMatch, bool) {
 	if i == len(segments) {
-		return routeMatch{node: n, params: params}, true
+		if len(n.handlers) > 0 {
+			return routeMatch{node: n, params: params}, true
+		}
+		return routeMatch{}, false
 	}
 
 	seg := segments[i]
