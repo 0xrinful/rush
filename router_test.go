@@ -30,6 +30,14 @@ func TestRouter_Matching(t *testing.T) {
 			[]string{"GET"},
 			"/ok",
 
+			"GET", "/ok/",
+			http.StatusOK, nil,
+		},
+
+		{
+			[]string{"GET"},
+			"/ok",
+
 			"GET", "/not",
 			http.StatusNotFound, nil,
 		},
@@ -55,6 +63,23 @@ func TestRouter_Matching(t *testing.T) {
 			"/api/v1/status",
 
 			"GET", "/api/v1/status/ping",
+			http.StatusNotFound, nil,
+		},
+
+		// wilcards
+		{
+			[]string{"GET"},
+			"/prefix/*",
+
+			"GET", "/prefix/anything/else",
+			http.StatusOK, nil,
+		},
+
+		{
+			[]string{"GET"},
+			"/prefix/*",
+
+			"GET", "/prefix",
 			http.StatusNotFound, nil,
 		},
 
@@ -100,6 +125,15 @@ func TestRouter_Matching(t *testing.T) {
 
 			"GET", "/user/12",
 			http.StatusNotFound, nil,
+		},
+
+		// method casing
+		{
+			[]string{"gEt"},
+			"/ok",
+
+			"GET", "/ok",
+			http.StatusOK, nil,
 		},
 
 		// all methods
@@ -420,6 +454,108 @@ func TestRouter_Middleware(t *testing.T) {
 				"%s %s: expected middleware order %q, got %q",
 				tt.reqMethod, tt.reqPath, tt.used, used,
 			)
+		}
+	}
+}
+
+func TestRouter_GroupWithPrefix(t *testing.T) {
+	r := New()
+	handler := func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) }
+
+	r.Get("/before", handler)
+	r.GroupWithPrefix("/v1", func(r *Router) {
+		r.Get("/ok", handler)
+
+		r.GroupWithPrefix("/api", func(r *Router) {
+			r.Get("/status", handler)
+		})
+	})
+	r.Get("/after", handler)
+
+	tests := []struct {
+		path string
+		code int
+	}{
+		{"/v1/ok", http.StatusOK},
+		{"/v1/api/status", http.StatusOK},
+
+		{"/ok", http.StatusNotFound},
+
+		{"/v1/status", http.StatusNotFound},
+		{"/status", http.StatusNotFound},
+
+		{"/before", http.StatusOK},
+		{"/after", http.StatusOK},
+	}
+
+	for _, tt := range tests {
+		rq := httptest.NewRequest(http.MethodGet, tt.path, nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, rq)
+
+		if tt.code != w.Code {
+			t.Errorf("[%s] expected status %d, got %d", tt.path, tt.code, w.Code)
+		}
+	}
+}
+
+func TestRouter_RedirectTrailingSlash(t *testing.T) {
+	r := New()
+	r.RedirectTrailingSlash = true
+
+	handler := func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) }
+
+	r.HandleFunc("/ok", handler, http.MethodGet, http.MethodPost)
+
+	tests := []struct {
+		method   string
+		path     string
+		code     int
+		location string
+	}{
+		{
+			"GET", "/ok",
+			http.StatusOK, "",
+		},
+
+		{
+			"GET", "/ok/",
+			http.StatusMovedPermanently, "/ok",
+		},
+
+		{
+			"POST", "/ok",
+			http.StatusOK, "",
+		},
+
+		{
+			"POST", "/ok/",
+			http.StatusPermanentRedirect, "/ok",
+		},
+
+		{
+			"POST", "/not/",
+			http.StatusNotFound, "",
+		},
+	}
+
+	for _, tt := range tests {
+		rq := httptest.NewRequest(tt.method, tt.path, nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, rq)
+
+		if tt.code != w.Code {
+			t.Errorf("[%s %s] expected status %d, got %d", tt.method, tt.path, tt.code, w.Code)
+		}
+
+		if tt.location != "" {
+			got := w.Header().Get("Location")
+			if tt.location != got {
+				t.Errorf(
+					"[%s %s] expected redirect Location %q, got %q",
+					tt.method, tt.path, tt.location, got,
+				)
+			}
 		}
 	}
 }
