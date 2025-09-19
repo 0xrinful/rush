@@ -96,8 +96,7 @@ type routeMatch struct {
 
 func (t *trie) lookup(path string) (routeMatch, bool) {
 	segments := splitPath(path)
-	params := make(map[string]string)
-	return t.root.match(0, segments, params)
+	return t.root.match(0, segments, nil)
 }
 
 func (n *node) match(i int, segments []string, params map[string]string) (routeMatch, bool) {
@@ -118,6 +117,9 @@ func (n *node) match(i int, segments []string, params map[string]string) (routeM
 	}
 
 	if n.paramChild != nil {
+		if params == nil {
+			params = make(map[string]string, 2)
+		}
 		params[n.paramChild.segment] = seg
 		if m, ok := n.paramChild.match(i, segments, params); ok {
 			return m, ok
