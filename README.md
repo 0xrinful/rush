@@ -38,6 +38,10 @@ func main() {
     r.MethodNotAllowed = custom405Handler
     r.Options = customOptionsHandler
 
+    // Redirect requests with a trailing slash to the normalized route.
+    // Useful for SEO and consistent URLs; only affects existing routes
+    r.RedirectTrailingSlash = true 
+
     // Register global middleware (applied to all routes, including error handlers and OPTIONS responses)
     r.Use(globalMiddleware1)
 
@@ -96,11 +100,24 @@ Rush prioritizes routes based on specificity:
 
 **Matching behavior:**
 
-| Request            | Matched Route          | Notes                         |
-|--------------------|------------------------|-------------------------------|
-| `/users/new`       | `/users/new`           | Exact match wins              |
-| `/users/delete/5`  | `/users/delete/{id}`   | Parameter match               |
-| `/users/profile`   | `/users/*`             | Wildcard used as fallback     |
+| Request                  | Matched Route          | Notes                         |
+|--------------------------|------------------------|-------------------------------|
+| `/users/new`             | `/users/new`           | Exact match wins              |
+| `/users/delete/5`        | `/users/delete/{id}`   | Parameter match               |
+| `/users/delete/5/other`  | `/users/*`             | Wildcard used as fallback     |
+| `/users/delete`          | `/users/*`             | Wildcard used as fallback     |
+| `/users/new/other`       | `/users/*`             | Wildcard used as fallback     |
+| `/users/other`           | `/users/*`             | Wildcard used as fallback     |
+
+### Trailing Slash Behavior
+
+Rush **always normalizes paths internally**, so `/foo` and `/foo/` are treated as the same route.
+
+- This keeps routing **simple, fast, and predictable**, especially for APIs, where trailing slashes are usually irrelevant.
+- By default, there is **no extra redirection or duplicate route entries**, minimizing overhead.
+- If you want to **redirect requests with a trailing slash** (e.g., for SEO on a website), you can enable the `RedirectTrailingSlash` flag: in this case, `/foo/` will automatically redirect to `/foo` if the normalized route exists.
+
+**Rationale:** Most APIs don’t need `/profile` and `/profile/` to be separate. Normalization simplifies route management and avoids accidental inconsistencies, while optional redirection provides a friendly behavior for websites when needed.
 
 ### Notes
 
