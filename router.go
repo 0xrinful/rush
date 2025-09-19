@@ -14,13 +14,14 @@ var AllMethods = []string{
 }
 
 type Router struct {
-	NotFound         http.Handler
-	MethodNotAllowed http.Handler
-	Options          http.Handler
-	routes           *trie
-	middlewares      []Middleware
-	prefix           string
-	handlersWrapped  bool // true once custom 404/405/OPTIONS handlers have been wrapped with middlewares
+	NotFound              http.Handler
+	MethodNotAllowed      http.Handler
+	Options               http.Handler
+	RedirectTrailingSlash bool
+	routes                *trie
+	middlewares           []Middleware
+	prefix                string
+	handlersWrapped       bool // true once custom 404/405/OPTIONS handlers have been wrapped with middlewares
 }
 
 func New() *Router {
@@ -105,6 +106,15 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, rq *http.Request) {
 	match, found := r.routes.lookup(urlPath)
 	if !found {
 		r.NotFound.ServeHTTP(w, rq)
+		return
+	}
+
+	if r.RedirectTrailingSlash && urlPath != "/" && strings.HasSuffix(rq.URL.Path, "/") {
+		code := http.StatusMovedPermanently
+		if rq.Method != http.MethodGet {
+			code = http.StatusPermanentRedirect
+		}
+		http.Redirect(w, rq, urlPath, code)
 		return
 	}
 
