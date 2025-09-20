@@ -27,7 +27,7 @@ func (n *node) nextOrCreate(segment string) *node {
 	if strings.HasPrefix(segment, "{") && strings.HasSuffix(segment, "}") {
 		name := segment[1 : len(segment)-1]
 		if name == "" {
-			panic("empty param name not allowed")
+			panic("rush: empty parameter name '{}' is not allowed")
 		}
 		if n.paramChild == nil {
 			n.paramChild = newNode(name)
@@ -80,7 +80,7 @@ func (t *trie) insert(pattern string, handler http.Handler, methods ...string) {
 	cur := t.root
 	for i, seg := range segments {
 		if seg == "*" && i != len(segments)-1 {
-			panic("wildcard '*' can only be at the end of the route")
+			panic("rush: wildcard '*' can only be at the end of the route")
 		}
 		cur = cur.nextOrCreate(seg)
 	}
