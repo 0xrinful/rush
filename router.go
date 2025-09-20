@@ -9,19 +9,23 @@ import (
 
 type Middleware func(http.Handler) http.Handler
 
-var AllMethods = []string{
+var allMethods = []string{
 	http.MethodGet, http.MethodHead, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete, http.MethodConnect, http.MethodOptions, http.MethodTrace,
 }
 
 type Router struct {
+	// Configuration handlers
 	NotFound              http.Handler
 	MethodNotAllowed      http.Handler
 	Options               http.Handler
 	RedirectTrailingSlash bool
-	routes                *trie
-	middlewares           []Middleware
-	prefix                string
-	handlersWrapped       bool // true once custom 404/405/OPTIONS handlers have been wrapped with middlewares
+
+	// Internal state
+	routes      *trie
+	middlewares []Middleware
+	prefix      string
+	handler     http.Handler
+	isRoot      bool
 }
 
 func New() *Router {
@@ -34,25 +38,40 @@ func New() *Router {
 			w.WriteHeader(http.StatusNoContent)
 		}),
 		routes: &trie{root: newNode("/")},
+		isRoot: true,
 	}
 }
 
-func (r *Router) Use(mw ...Middleware) {
-	r.middlewares = append(r.middlewares, mw...)
+func (r *Router) Use(middlewares ...Middleware) {
+	if r.handler != nil {
+		panic("rush: all root-level middlewares must be defined before routes")
+	}
+	r.middlewares = append(r.middlewares, middlewares...)
+}
+
+func (r *Router) cloneChain() []Middleware {
+	if r.isRoot {
+		return []Middleware{}
+	}
+	return slices.Clone(r.middlewares)
 }
 
 func (r *Router) Group(fn func(r *Router)) {
-	nr := &Router{routes: r.routes, prefix: r.prefix, middlewares: slices.Clone(r.middlewares)}
-	fn(nr)
+	sub := &Router{routes: r.routes, prefix: r.prefix, middlewares: r.cloneChain()}
+	fn(sub)
 }
 
 func (r *Router) GroupWithPrefix(prefix string, fn func(r *Router)) {
-	nr := &Router{
+	sub := &Router{routes: r.routes, prefix: r.prefix + prefix, middlewares: r.cloneChain()}
+	fn(sub)
+}
+
+func (r *Router) With(middlewares ...Middleware) *Router {
+	return &Router{
 		routes:      r.routes,
-		prefix:      r.prefix + prefix,
-		middlewares: slices.Clone(r.middlewares),
+		prefix:      r.prefix,
+		middlewares: append(r.cloneChain(), middlewares...),
 	}
-	fn(nr)
 }
 
 func (r *Router) HandleFunc(pattern string, handler http.HandlerFunc, methods ...string) {
@@ -60,19 +79,39 @@ func (r *Router) HandleFunc(pattern string, handler http.HandlerFunc, methods ..
 }
 
 func (r *Router) Handle(pattern string, handler http.Handler, methods ...string) {
+	// Normalize method names to uppercase
 	for i, m := range methods {
 		methods[i] = strings.ToUpper(m)
 	}
 
+	// Auto-add HEAD method when GET is specified
 	if slices.Contains(methods, http.MethodGet) && !slices.Contains(methods, http.MethodHead) {
 		methods = append(methods, http.MethodHead)
 	}
 
+	// Default to all methods if none specified
 	if len(methods) == 0 {
-		methods = AllMethods
+		methods = allMethods
 	}
 
-	r.routes.insert(r.prefix+pattern, r.wrap(handler), methods...)
+	// Build handler chain for root router
+	if r.isRoot && r.handler == nil {
+		r.handler = chain(r.middlewares, http.HandlerFunc(r.handleRequest))
+	}
+
+	// Apply middlewares for non-root routers
+	if !r.isRoot {
+		handler = chain(r.middlewares, handler)
+	}
+
+	r.routes.insert(r.prefix+pattern, handler, methods...)
+}
+
+func chain(middlewares []Middleware, handler http.Handler) http.Handler {
+	for i := len(middlewares) - 1; i >= 0; i-- {
+		handler = middlewares[i](handler)
+	}
+	return handler
 }
 
 func (r *Router) Get(pattern string, handlerFunc http.HandlerFunc) {
@@ -100,8 +139,19 @@ func (r *Router) Delete(pattern string, handlerFunc http.HandlerFunc) {
 }
 
 func (r *Router) ServeHTTP(w http.ResponseWriter, rq *http.Request) {
+	if !r.isRoot {
+		panic("rush: only root router should be used as http.Handler")
+	}
+
+	if r.handler == nil {
+		r.handler = chain(r.middlewares, http.HandlerFunc(r.handleRequest))
+	}
+
+	r.handler.ServeHTTP(w, rq)
+}
+
+func (r *Router) handleRequest(w http.ResponseWriter, rq *http.Request) {
 	urlPath := path.Clean(rq.URL.Path)
-	r.wrapCustomHandlersOnce()
 
 	match, found := r.routes.lookup(urlPath)
 	if !found {
@@ -128,22 +178,6 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, rq *http.Request) {
 		rq.SetPathValue(key, value)
 	}
 	handler.ServeHTTP(w, rq)
-}
-
-func (r *Router) wrap(h http.Handler) http.Handler {
-	for i := len(r.middlewares) - 1; i >= 0; i-- {
-		h = r.middlewares[i](h)
-	}
-	return h
-}
-
-func (r *Router) wrapCustomHandlersOnce() {
-	if !r.handlersWrapped {
-		r.NotFound = r.wrap(r.NotFound)
-		r.MethodNotAllowed = r.wrap(r.MethodNotAllowed)
-		r.Options = r.wrap(r.Options)
-		r.handlersWrapped = true
-	}
 }
 
 func (r *Router) handleMethodNotAllowed(w http.ResponseWriter, rq *http.Request, node *node) {
