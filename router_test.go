@@ -372,22 +372,25 @@ func TestRouter_Middleware(t *testing.T) {
 
 	r.Get("/1", handler)
 
+	r.With(m6).Get("/2", handler)
+
 	r.Group(func(r *Router) {
+		r.Get("/3", handler)
 		r.Use(m4)
-		r.Get("/2", handler)
+		r.Get("/4", handler)
 
 		r.Group(func(r *Router) {
 			r.Use(m5)
-			r.Get("/3", handler)
+			r.Get("/5", handler)
 		})
 	})
 
 	r.Group(func(r *Router) {
 		r.Use(m6)
-		r.Get("/4", handler)
+		r.Get("/6", handler)
 	})
 
-	r.Get("/5", handler)
+	r.Get("/7", handler)
 
 	tests := []struct {
 		reqMethod string
@@ -402,21 +405,31 @@ func TestRouter_Middleware(t *testing.T) {
 
 		{
 			"GET", "/2",
-			"1234", http.StatusOK,
-		},
-
-		{
-			"GET", "/3",
-			"12345", http.StatusOK,
-		},
-
-		{
-			"GET", "/4",
 			"1236", http.StatusOK,
 		},
 
 		{
+			"GET", "/3",
+			"123", http.StatusOK,
+		},
+
+		{
+			"GET", "/4",
+			"1234", http.StatusOK,
+		},
+
+		{
 			"GET", "/5",
+			"12345", http.StatusOK,
+		},
+
+		{
+			"GET", "/6",
+			"1236", http.StatusOK,
+		},
+
+		{
+			"GET", "/7",
 			"123", http.StatusOK,
 		},
 
