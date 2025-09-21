@@ -89,47 +89,39 @@ func (t *trie) insert(pattern string, handler http.Handler, methods ...string) {
 	}
 }
 
-type routeMatch struct {
-	node   *node
-	params map[string]string
-}
-
-func (t *trie) lookup(path string) (routeMatch, bool) {
+func (t *trie) lookup(path string, r *http.Request) *node {
 	segments := splitPath(path)
-	return t.root.match(0, segments, nil)
+	return t.root.match(0, segments, r)
 }
 
-func (n *node) match(i int, segments []string, params map[string]string) (routeMatch, bool) {
+func (n *node) match(i int, segments []string, r *http.Request) *node {
 	if i == len(segments) {
 		if len(n.handlers) > 0 {
-			return routeMatch{node: n, params: params}, true
+			return n
 		}
-		return routeMatch{}, false
+		return nil
 	}
 
 	seg := segments[i]
 	i++
 
 	if child, ok := n.children[seg]; ok {
-		if m, ok := child.match(i, segments, params); ok {
-			return m, ok
+		if m := child.match(i, segments, r); m != nil {
+			return m
 		}
 	}
 
 	if n.paramChild != nil {
-		if params == nil {
-			params = make(map[string]string, 2)
+		r.SetPathValue(n.paramChild.segment, seg)
+		if m := n.paramChild.match(i, segments, r); m != nil {
+			return m
 		}
-		params[n.paramChild.segment] = seg
-		if m, ok := n.paramChild.match(i, segments, params); ok {
-			return m, ok
-		}
-		delete(params, n.paramChild.segment)
+		r.SetPathValue(n.paramChild.segment, "")
 	}
 
 	if n.wildcardChild != nil {
-		return routeMatch{node: n.wildcardChild, params: params}, true
+		return n.wildcardChild
 	}
 
-	return routeMatch{}, false
+	return nil
 }

@@ -157,8 +157,8 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, rq *http.Request) {
 func (r *Router) handleRequest(w http.ResponseWriter, rq *http.Request) {
 	urlPath := path.Clean(rq.URL.Path)
 
-	match, found := r.routes.lookup(urlPath)
-	if !found {
+	match := r.routes.lookup(urlPath, rq)
+	if match == nil {
 		r.NotFound.ServeHTTP(w, rq)
 		return
 	}
@@ -172,14 +172,10 @@ func (r *Router) handleRequest(w http.ResponseWriter, rq *http.Request) {
 		return
 	}
 
-	handler, methodAllowed := match.node.handlers[rq.Method]
+	handler, methodAllowed := match.handlers[rq.Method]
 	if !methodAllowed {
-		r.handleMethodNotAllowed(w, rq, match.node)
+		r.handleMethodNotAllowed(w, rq, match)
 		return
-	}
-
-	for key, value := range match.params {
-		rq.SetPathValue(key, value)
 	}
 	handler.ServeHTTP(w, rq)
 }
