@@ -293,6 +293,11 @@ func TestRouter_Options(t *testing.T) {
 
 	r.HandleFunc("/ok", nil, allowedMethods...)
 
+	r.Options("/custom-options", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("allow", "custom")
+		w.WriteHeader(http.StatusNoContent)
+	})
+
 	tests := []struct {
 		path  string
 		code  int
@@ -300,6 +305,7 @@ func TestRouter_Options(t *testing.T) {
 	}{
 		{"/ok", http.StatusNoContent, "GET, HEAD, OPTIONS, PUT"},
 		{"/not", http.StatusNotFound, ""},
+		{"/custom-options", http.StatusNoContent, "custom"},
 	}
 
 	for _, tt := range tests {
