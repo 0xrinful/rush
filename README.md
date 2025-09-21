@@ -1,6 +1,19 @@
 # Rush
 
-Rush is a fast, lightweight HTTP router for Go with named parameters, wildcards, customizable handlers, and flexible middleware, all in ~300 LOC.
+Rush is a fast, lightweight HTTP router for Go with named parameters, wildcards, customizable handlers, and flexible middleware.
+
+## Table of Contents
+- [Features](#features)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Full Example](#full-example)
+- [API Reference](#api-reference)
+- [Middleware System](#middleware-system)
+- [Route Matching & Precedence](#route-matching--precedence)
+- [Custom Error & Default Handlers](#custom-error--default-handlers)
+- [Trailing Slash Behavior](#trailing-slash-behavior)
+- [Common Patterns](#common-patterns)
+- [Important Notes](#important-notes)
 
 ## Features
 
@@ -9,20 +22,60 @@ Rush is a fast, lightweight HTTP router for Go with named parameters, wildcards,
 - **Route Precedence**: Automatic most-specific route matching
 - **Middleware Groups**: Apply middleware to specific route groups 
 - **Prefix Groups**: Group routes with common path prefixes (e.g., `/api/v1`)
-- **Customizable handlers** for `404 Not Found`, `405 Method Not Allowed`, and `OPTIONS`.
-- **Automatic handling** of `OPTIONS` and `HEAD` requests.
-- **Standard Library Compatible**: Works with any `http.Handler` or `http.HandlerFunc`
-- Lightweight, zero dependencies, and easy-to-read codebase.
+- **Customizable handlers**: for `404 Not Found`, `405 Method Not Allowed`, and `OPTIONS`
+- **Automatic handling**: of `OPTIONS` and `HEAD` requests
+- **Standard Library Compatible**: Works with any `http.Handler` or `http.HandlerFunc`, and standard Go middleware
+- **Lightweight & Dependency-Free**: ~300 LOC, zero dependencies, easy-to-read codebase
 
 ## Installation
 
 Install Rush with:
 
-```
+```bash
 go get github.com/0xrinful/rush@latest
 ```
 
-## Quick Start Example
+## Quick Start
+
+```go
+package main
+
+import (
+    "fmt"
+    "net/http"
+    "github.com/0xrinful/rush"
+)
+
+func main() {
+    r := rush.New()
+    // Register global middleware
+    r.Use(loggingMiddleware)
+
+    // Basic route
+    r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+        w.Write([]byte("Hello, Rush!"))
+    })
+
+    // Route with URL parameter: /hello/123 → "Hello, user 123"
+    r.Get("/hello/{id}", func(w http.ResponseWriter, r *http.Request) {
+        id := r.PathValue("id")
+        w.Write([]byte("Hello, user " + id))
+    })
+
+    // Start server
+    http.ListenAndServe(":8080", r)
+}
+
+// Example logging middleware
+func loggingMiddleware(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        fmt.Println(r.Method, r.URL.Path)
+        next.ServeHTTP(w, r)
+    })
+}
+```
+
+## Full Example
 
 ```go
 package main
@@ -38,7 +91,7 @@ func main() {
     // Custom handlers for common HTTP errors (optional)
     r.NotFound = custom404Handler
     r.MethodNotAllowed = custom405Handler
-    r.Options = customOptionsHandler
+    r.AutoOptions = customAutoOptionsHandler
 
     // Redirect requests with a trailing slash to the normalized route
     // Useful for SEO and consistent URLs; only affects existing routes
@@ -46,7 +99,7 @@ func main() {
 
     // Global middleware - wraps the entire router (affects ALL routes and error handlers)
     r.Use(loggingMiddleware)    // outermost layer (runs first)
-    r.Use(corsMiddleware)       // middle layer    (runs second)
+    r.Use(corsMiddleware)       // middle layer (runs second)
     r.Use(authMiddleware)       // innermost layer (runs third)
 
     // Basic routes
@@ -78,9 +131,9 @@ func main() {
         
         // Nested groups supported
         r.Group(func(r *rush.Router) {
-            // inherits all middlewares from the parent group
-            r.Use(superAdminMiddleware)
-            r.Delete("/admin/system/reset", systemResetHandler)
+            // Inherits all middlewares from the parent group
+            r.Use(auditMiddleware)  // Additional middleware for this nested group
+            r.Delete("/admin/system/reset", systemResetHandler)  // Uses: adminMiddleware + superAdminMiddleware + auditMiddleware
         })
     }) 
 
@@ -113,9 +166,35 @@ func listUsersHandler(w http.ResponseWriter, r *http.Request) {
     // Implementation...
 }
 ```
-## Two-Level Middleware System
 
-Rush features a sophisticated two-level middleware system that provides both global and granular control over request processing.
+## API Reference
+
+### Router Methods
+- `Get(pattern, handler)` - Register GET route
+- `Post(pattern, handler)` - Register POST route  
+- `Put(pattern, handler)` - Register PUT route
+- `Delete(pattern, handler)` - Register DELETE route
+- `Patch(pattern, handler)` - Register PATCH route
+- `Head(pattern, handler)` - Register HEAD route
+- `Options(pattern, handler)` - Register OPTIONS route
+- `Handle(pattern, handler, methods...)` - Register route with custom HTTP methods
+- `HandleFunc(pattern, handlerFunc, methods...)` - Register HandlerFunc with custom HTTP methods
+
+### Middleware Methods
+- `Use(middleware...)` - Register global or group-level middleware
+- `With(middleware...)` - Create a new router instance with additional middleware for single routes
+- `Group(func(*Router))` - Create a route group with shared middleware
+- `GroupWithPrefix(prefix, func(*Router))` - Create a route group with shared path prefix
+
+### Configuration Properties
+- `NotFound http.Handler` - Custom 404 Not Found handler
+- `MethodNotAllowed http.Handler` - Custom 405 Method Not Allowed handler
+- `AutoOptions http.Handler` - Global OPTIONS request handler (used when no specific OPTIONS route is registered)
+- `RedirectTrailingSlash bool` - Enable trailing slash redirects
+
+## Middleware System
+
+Rush provides both global and scoped middleware, making it easy to control behavior across your entire app or just for specific groups of routes.
 
 ### Root Level (Global Middleware)
 
@@ -283,21 +362,29 @@ r.Get("/users/*", handler4)          // Wildcard fallback
 | `/users/123/settings`  | `/users/*`            | None             | Wildcard |
 | `/users/new/something` | `/users/*`            | None             | Wildcard |
 
-## Error Handling
+## Custom Error & Default Handlers
 
 Rush provides customizable handlers for common HTTP scenarios:
 
 - **`r.NotFound`**: Custom 404 Not Found responses
 - **`r.MethodNotAllowed`**: Custom 405 Method Not Allowed responses  
-- **`r.Options`**: Custom OPTIONS request handling
+- **`r.AutoOptions`**: Global OPTIONS request handler (used automatically when no specific OPTIONS route is registered for a path)
 
 **Important**: These handlers automatically inherit all global middleware applied to the router.
 
 ```go
+// Custom 404 handler
 r.NotFound = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("Content-Type", "application/json")
     w.WriteHeader(http.StatusNotFound)
     w.Write([]byte(`{"error": "Resource not found"}`))
+})
+
+// Custom global OPTIONS handler
+r.AutoOptions = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+    w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+    w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+    w.WriteHeader(http.StatusOK)
 })
 ```
 
@@ -342,13 +429,18 @@ r.GroupWithPrefix("/api/v2", func(r *rush.Router) {
 })
 ```
 
-### RESTful Resources
+### Protected Routes with Middleware
 ```go
-r.Get("/users", listUsers)           // GET /users
-r.Post("/users", createUser)         // POST /users  
-r.Get("/users/{id}", getUser)        // GET /users/123
-r.Put("/users/{id}", updateUser)     // PUT /users/123
-r.Delete("/users/{id}", deleteUser)  // DELETE /users/123
+// Public routes
+r.Get("/", publicHandler)
+r.Post("/login", loginHandler)
+
+// Protected admin routes
+r.Group(func(r *rush.Router) {
+    r.Use(authMiddleware, adminMiddleware)
+    r.Get("/admin/dashboard", adminDashboard)
+    r.Post("/admin/users", createAdminUser)
+})
 ```
 
 ## Important Notes
