@@ -1,6 +1,7 @@
 package rush
 
 import (
+	"fmt"
 	"net/http"
 	"slices"
 	"strings"
@@ -31,6 +32,13 @@ func (n *node) nextOrCreate(segment string) *node {
 		}
 		if n.paramChild == nil {
 			n.paramChild = newNode(name)
+		}
+		if n.paramChild.segment != name {
+			panic(fmt.Sprintf(
+				"rush: parameter name conflict - cannot use both '{%s}' and '{%s}' at the same path level",
+				n.paramChild.segment,
+				name,
+			))
 		}
 		return n.paramChild
 	}
