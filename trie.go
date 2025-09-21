@@ -7,19 +7,19 @@ import (
 )
 
 type node struct {
-	segment       string
 	children      map[string]*node
+	handlers      map[string]http.Handler
 	paramChild    *node
 	wildcardChild *node
-	handlers      map[string]http.Handler
+	segment       string
 	allowHeader   string
 }
 
 func newNode(segment string) *node {
 	return &node{
 		segment:  segment,
-		children: make(map[string]*node),
-		handlers: make(map[string]http.Handler),
+		children: make(map[string]*node, 4),
+		handlers: make(map[string]http.Handler, 2),
 	}
 }
 

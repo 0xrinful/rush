@@ -156,7 +156,7 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, rq *http.Request) {
 
 func needsCleaning(path string) bool {
 	n := len(path) - 1
-	if path[n] == '/' {
+	if n > 1 && path[n] == '/' {
 		return true
 	}
 	for i := range n {
