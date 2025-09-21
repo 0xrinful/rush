@@ -32,13 +32,13 @@ Rush is a fast, lightweight HTTP router for Go with named parameters, wildcards,
 
 Rush delivers excellent performance, competitive with the fastest Go routers:
 
-| Router      | Static Route | Parameter Route | Memory (Static) | Memory (Param) |
-|-------------|--------------|-----------------|-----------------|----------------|
-| httprouter  | 1,175 ns/op  | 1,291 ns/op     | 440 B/op        | 504 B/op       |
-| **Rush**    | **1,193 ns/op** | **1,387 ns/op** | **440 B/op**   | **440 B/op**   |
-| stdmux      | 1,390 ns/op  | 1,849 ns/op     | 440 B/op        | 456 B/op       |
-| chi         | 1,635 ns/op  | 2,129 ns/op     | 808 B/op        | 1,145 B/op     |
-| gorilla/mux | 2,407 ns/op  | 3,658 ns/op     | 1,289 B/op      | 1,593 B/op     |
+| Router      | Static Route | Parameter Route | Memory (Static) | Memory (Param) | Allocs (Static) | Allocs (Param) |
+|-------------|--------------|-----------------|-----------------|----------------|-----------------|----------------|
+| httprouter  | 1,175 ns/op  | 1,291 ns/op     | 440 B/op        | 504 B/op       | 9 allocs/op     | 10 allocs/op   |
+| **Rush**    | **1,193 ns/op** | **1,387 ns/op** | **440 B/op**   | **440 B/op**   | **9 allocs/op** | **9 allocs/op** |
+| stdmux      | 1,390 ns/op  | 1,849 ns/op     | 440 B/op        | 456 B/op       | 9 allocs/op     | 10 allocs/op   |
+| chi         | 1,635 ns/op  | 2,129 ns/op     | 808 B/op        | 1,145 B/op     | 11 allocs/op    | 13 allocs/op   |
+| gorilla/mux | 2,407 ns/op  | 3,658 ns/op     | 1,289 B/op      | 1,593 B/op     | 16 allocs/op    | 17 allocs/op   |
 
 *Benchmarks run on Linux AMD with Go 1.24.4 (September 2025). Results may vary by environment.*
 
