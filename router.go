@@ -17,7 +17,7 @@ type Router struct {
 	// Configuration handlers
 	NotFound              http.Handler
 	MethodNotAllowed      http.Handler
-	Options               http.Handler
+	AutoOptions           http.Handler
 	RedirectTrailingSlash bool
 
 	// Internal state
@@ -34,7 +34,7 @@ func New() *Router {
 		MethodNotAllowed: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
 		}),
-		Options: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		AutoOptions: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNoContent)
 		}),
 		routes: &trie{root: newNode("/")},
@@ -138,6 +138,10 @@ func (r *Router) Delete(pattern string, handlerFunc http.HandlerFunc) {
 	r.Handle(pattern, handlerFunc, http.MethodDelete)
 }
 
+func (r *Router) Options(pattern string, handlerFunc http.HandlerFunc) {
+	r.Handle(pattern, handlerFunc, http.MethodOptions)
+}
+
 func (r *Router) ServeHTTP(w http.ResponseWriter, rq *http.Request) {
 	if !r.isRoot {
 		panic("rush: only root router should be used as http.Handler")
@@ -183,7 +187,7 @@ func (r *Router) handleRequest(w http.ResponseWriter, rq *http.Request) {
 func (r *Router) handleMethodNotAllowed(w http.ResponseWriter, rq *http.Request, node *node) {
 	w.Header().Set("Allow", node.allow())
 	if rq.Method == http.MethodOptions {
-		r.Options.ServeHTTP(w, rq)
+		r.AutoOptions.ServeHTTP(w, rq)
 	} else {
 		r.MethodNotAllowed.ServeHTTP(w, rq)
 	}
