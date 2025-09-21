@@ -4,6 +4,7 @@ Rush is a fast, lightweight HTTP router for Go with named parameters, wildcards,
 
 ## Table of Contents
 - [Features](#features)
+- [Performance Benchmarks](#performance-benchmarks)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Full Example](#full-example)
@@ -26,6 +27,20 @@ Rush is a fast, lightweight HTTP router for Go with named parameters, wildcards,
 - **Automatic handling**: of `OPTIONS` and `HEAD` requests
 - **Standard Library Compatible**: Works with any `http.Handler` or `http.HandlerFunc`, and standard Go middleware
 - **Lightweight & Dependency-Free**: ~300 LOC, zero dependencies, easy-to-read codebase
+
+## Performance Benchmarks
+
+Rush delivers excellent performance, competitive with the fastest Go routers:
+
+| Router      | Static Route | Parameter Route | Memory (Static) | Memory (Param) |
+|-------------|--------------|-----------------|-----------------|----------------|
+| httprouter  | 1,175 ns/op  | 1,291 ns/op     | 440 B/op        | 504 B/op       |
+| **Rush**    | **1,193 ns/op** | **1,387 ns/op** | **440 B/op**   | **440 B/op**   |
+| stdmux      | 1,390 ns/op  | 1,849 ns/op     | 440 B/op        | 456 B/op       |
+| chi         | 1,635 ns/op  | 2,129 ns/op     | 808 B/op        | 1,145 B/op     |
+| gorilla/mux | 2,407 ns/op  | 3,658 ns/op     | 1,289 B/op      | 1,593 B/op     |
+
+*Benchmarks run on Linux AMD with Go 1.24.4 (September 2025). Results may vary by environment.*
 
 ## Installation
 
