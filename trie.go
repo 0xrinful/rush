@@ -90,30 +90,33 @@ func (t *trie) insert(pattern string, handler http.Handler, methods ...string) {
 }
 
 func (t *trie) lookup(path string, r *http.Request) *node {
-	segments := splitPath(path)
-	return t.root.match(0, segments, r)
+	return t.root.match(1, path, r)
 }
 
-func (n *node) match(i int, segments []string, r *http.Request) *node {
-	if i == len(segments) {
+func (n *node) match(i int, path string, r *http.Request) *node {
+	if i >= len(path) {
 		if len(n.handlers) > 0 {
 			return n
 		}
 		return nil
 	}
 
-	seg := segments[i]
-	i++
+	end := i
+	for end < len(path) && path[end] != '/' {
+		end++
+	}
+	segment := path[i:end]
+	next := end + 1
 
-	if child, ok := n.children[seg]; ok {
-		if m := child.match(i, segments, r); m != nil {
+	if child, ok := n.children[segment]; ok {
+		if m := child.match(next, path, r); m != nil {
 			return m
 		}
 	}
 
 	if n.paramChild != nil {
-		r.SetPathValue(n.paramChild.segment, seg)
-		if m := n.paramChild.match(i, segments, r); m != nil {
+		r.SetPathValue(n.paramChild.segment, segment)
+		if m := n.paramChild.match(next, path, r); m != nil {
 			return m
 		}
 		r.SetPathValue(n.paramChild.segment, "")

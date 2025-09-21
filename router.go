@@ -154,8 +154,24 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, rq *http.Request) {
 	r.handler.ServeHTTP(w, rq)
 }
 
+func needsCleaning(path string) bool {
+	n := len(path) - 1
+	if path[n] == '/' {
+		return true
+	}
+	for i := range n {
+		if path[i] == '/' && (path[i+1] == '/' || path[i+1] == '.') {
+			return true
+		}
+	}
+	return false
+}
+
 func (r *Router) handleRequest(w http.ResponseWriter, rq *http.Request) {
-	urlPath := path.Clean(rq.URL.Path)
+	urlPath := rq.URL.Path
+	if needsCleaning(urlPath) {
+		urlPath = path.Clean(urlPath)
+	}
 
 	match := r.routes.lookup(urlPath, rq)
 	if match == nil {
